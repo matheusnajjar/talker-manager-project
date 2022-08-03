@@ -1,10 +1,11 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
+const fs = require('fs').promises;
 const crypto = require('crypto');
 
-const talker = 'talker.json';
+const talker = './talker.json';
 const validEmail = /.{2,20}@.*\.com/;
+const validDate = /^([0-2][0-9]|(3)[0-1])(\/)(((0)[0-9])|((1)[0-2]))(\/)\d{4}$/i;
 
 const app = express();
 app.use(bodyParser.json());
@@ -21,25 +22,104 @@ app.get('/', (_request, response) => {
   response.status(HTTP_OK_STATUS).send();
 });
 
-app.get('/talker', (_req, res) => {
-  fs.readFile(talker, 'utf-8', (_err, data) => {
-    if (data.length === 0) return [];
-    res.status(200).send(JSON.parse(data));
-  });
+app.get('/talker', async (_req, res) => {
+  const file = await fs.readFile(talker);
+  const fileJson = await JSON.parse(file);
+  if (fileJson.length === 0) return res.status(200).send([]);
+  return res.status(200).send(fileJson);
 });
 
-app.get('/talker/:id', (req, res) => {
-  fs.readFile(talker, 'utf-8', (_err, data) => {
-    const { id } = req.params;
-    const selectedTalker = JSON.parse(data).find((t) => t.id === Number(id));
+const verifyName = (req, res, next) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: 'O campo "name" é obrigatório' });
+    if (name.length < 3) {
+ return res.status(400).json({ 
+      message: 'O "name" deve ter pelo menos 3 caracteres', 
+    });
+  }
+  next();
+};
+
+const verifyAge = (req, res, next) => {
+  const { age } = req.body;
+  if (!age) return res.status(400).json({ message: 'O campo "age" é obrigatório' });
+  if (age < 18) {
+ return res.status(400).json({
+    message: 'A pessoa palestrante deve ser maior de idade',
+  }); 
+}
+  next();
+};
+
+const verifyAuthorization = (req, res, next) => {
+  const { authorization } = req.headers;
+  if (!authorization) return res.status(401).json({ message: 'Token não encontrado' });
+  if (authorization.length < 16) return res.status(401).json({ message: 'Token inválido' });
+  next();
+};
+
+const verifyTalk = (req, res, next) => {
+  const { talk } = req.body;
+  if (!talk) return res.status(400).json({ message: 'O campo "talk" é obrigatório' });
+
+  next();
+};
+
+const verifyWatchedAt = (req, res, next) => {
+  const { talk: { watchedAt } } = req.body;
+  if (!watchedAt) return res.status(400).json({ message: 'O campo "watchedAt" é obrigatório' });
+  if (!validDate.test(watchedAt)) {
+ return res.status(400).json({
+    message: 'O campo "watchedAt" deve ter o formato "dd/mm/aaaa"',
+  }); 
+}
+  next();
+};
+
+const verifyRate = (req, res, next) => {
+  const { talk: { rate } } = req.body;
+  if (!rate) return res.status(400).json({ message: 'O campo "rate" é obrigatório' });
+  if (Number(rate) < 1 || Number(rate) > 5) {
+ return res.status(400).json({
+    message: 'O campo "rate" deve ser um inteiro de 1 à 5',
+  }); 
+}
+  next();
+};
+
+app.post('/talker', verifyTalk, verifyAuthorization, verifyName,
+verifyAge, verifyRate, verifyWatchedAt, async (req, res) => {
+  const { name, age, talk: { watchedAt, rate } } = req.body;
+  const file = await fs.readFile('talker.json');
+  const fileJson = await JSON.parse(file);
+
+  const newTalker = {
+    id: fileJson.length + 1,
+    name,
+    age,
+    talk: {
+      watchedAt,
+      rate,
+    },
+  };
+
+  const newFile = [...fileJson, newTalker];
+  const newFileJson = JSON.stringify(newFile);
+  fs.writeFile('talker.json', newFileJson);
+  return res.status(201).json(newTalker);
+});
+
+app.get('/talker/:id', async (req, res) => {
+  const { id } = req.params;
+  const file = await fs.readFile(talker);
+  const fileJson = await JSON.parse(file);
+    const selectedTalker = fileJson.find((f) => f.id === Number(id));
     if (!selectedTalker) {
  return res.status(404).json({ 
       message: 'Pessoa palestrante não encontrada', 
     }); 
 }
-
   return res.status(200).json(selectedTalker); 
-  });
 });
 
 app.post('/login', (req, res) => {
