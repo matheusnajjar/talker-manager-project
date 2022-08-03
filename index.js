@@ -78,12 +78,12 @@ const verifyWatchedAt = (req, res, next) => {
 
 const verifyRate = (req, res, next) => {
   const { talk: { rate } } = req.body;
-  if (!rate) return res.status(400).json({ message: 'O campo "rate" é obrigatório' });
   if (Number(rate) < 1 || Number(rate) > 5) {
- return res.status(400).json({
-    message: 'O campo "rate" deve ser um inteiro de 1 à 5',
-  }); 
-}
+    return res.status(400).json({
+      message: 'O campo "rate" deve ser um inteiro de 1 à 5',
+    }); 
+  }
+  if (!rate) return res.status(400).json({ message: 'O campo "rate" é obrigatório' });
   next();
 };
 
@@ -120,6 +120,27 @@ app.get('/talker/:id', async (req, res) => {
     }); 
 }
   return res.status(200).json(selectedTalker); 
+});
+
+app.put('/talker/:id', verifyTalk, verifyAuthorization, verifyName,
+verifyAge, verifyRate, verifyWatchedAt, async (req, res) => {
+  const { id } = req.params;
+  const { name, age, talk } = req.body;
+  const file = await fs.readFile(talker);
+  const fileJson = await JSON.parse(file);
+  
+  const newFile = { name, age, id: +id, talk };
+  
+  const myFiles = fileJson.map((f) => {
+    if (f.id === +id) {
+      return newFile;
+    }
+    return f;
+  });
+
+  const newJson = JSON.stringify(myFiles);
+  await fs.writeFile(talker, newJson);
+  return res.status(200).json(newFile);
 });
 
 app.post('/login', (req, res) => {
