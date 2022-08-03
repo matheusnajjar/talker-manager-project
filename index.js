@@ -143,6 +143,19 @@ verifyAge, verifyRate, verifyWatchedAt, async (req, res) => {
   return res.status(200).json(newFile);
 });
 
+app.delete('/talker/:id', verifyAuthorization, async (req, res) => {
+  const { id } = req.params;
+  const file = await fs.readFile(talker);
+  const fileJson = await JSON.parse(file);
+
+  const talkerIndex = fileJson.findIndex((f) => f.id === Number(id));
+  
+  fileJson.splice(talkerIndex, 1);
+  const newJson = JSON.stringify(fileJson);
+  await fs.writeFile(talker, newJson);
+  res.status(204).end();
+});
+
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const token = generateToken();
