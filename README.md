@@ -59,7 +59,7 @@ Talker Manager is a project designed to manage a list of talkers (speakers) with
 ├── package.json
 └── talker.json
 
-----------------------------------------------------------------------
+
 
 🇧🇷
 # Projeto Gerenciador de Palestrantes
